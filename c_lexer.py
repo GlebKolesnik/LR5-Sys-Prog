@@ -33,7 +33,16 @@ tokens = (
     'INCREMENT', 'DECREMENT',
     # Предпроцессор и прочее
     'PREPROCESSOR',
-    'COMMENT'
+    'COMMENT',
+    'INCLUDE',
+    'DEFINE',
+    'IFDEF',
+    'IFNDEF',
+    'ELSE',
+    'ENDIF',
+    'ATTRIBUTE', 'ASM', 'BUILTIN', 'ERROR',
+    'LONG_LONG', 'LONG_DOUBLE',
+    'TYPE_QUALIFIER'
 )
 
 # Регулярные выражения для токенов
@@ -42,6 +51,20 @@ t_CHAR_CONST = r'\'[^\']*\''
 t_FLOAT_CONST = r'((\d+\.\d*)|(\d*\.\d+))([eE][-+]?\d+)?'
 t_STRING = r'\"[^\"]*\"'
 t_ENUMERATION_CONST = r'[A-Z][A-Z_0-9]*'
+t_INCLUDE = r'\#\s*include\s+<[^>]+>'
+t_DEFINE = r'\#\s*define\s+[a-zA-Z_][a-zA-Z_0-9]*\s+.*'
+t_IFDEF = r'\#\s*ifdef\s+[a-zA-Z_][a-zA-Z_0-9]*'
+t_IFNDEF = r'\#\s*ifndef\s+[a-zA-Z_][a-zA-Z_0-9]*'
+t_ELSE = r'\#\s*else'
+t_ENDIF = r'\#\s*endif'
+t_ID = r'[a-zA-Z_][a-zA-Z_0-9]*'
+t_ATTRIBUTE = r'__attribute__\s*\(\s*\(\s*[a-zA-Z_][a-zA-Z_0-9]*\s*(,\s*[a-zA-Z_][a-zA-Z_0-9]*\s*)*\)\s*\)'
+t_ASM = r'__asm\s+\"[^\"]*\"'
+t_BUILTIN = r'__builtin_[a-zA-Z_][a-zA-Z_0-9]*\s*\(\s*[^\)]*\s*\)'
+t_ERROR = r'error\s*\(s*\"[^\"]*\"\s*\)'
+t_LONG_INT_CONST = r'\d+[lL]'
+t_LONG_FLOAT_CONST = r'((\d+\.\d*)|(\d*\.\d+))([eE][-+]?\d+)?[lLfF]'
+
 
 # Зарезервированные слова
 reserved = {
@@ -112,8 +135,8 @@ def t_PREPROCESSOR(t):
     r'\#.*'
     pass  # No return value. Token discarded
 def t_COMMENT(t):
-    r'\/\/[^\n]*'
-    pass  # No return value. Token discarded
+    r'(\/\/[^\n]*|\/\*[\s\S]*?\*\/)'
+    pass
 # Определение новой строки
 def t_newline(t):
     r'\n+'
@@ -124,20 +147,30 @@ t_ignore = ' \t'
 def t_error(t):
     print(f"Illegal character '{t.value[0]}'")
     t.lexer.skip(1)
+
+def t_LONG_LONG(t):
+    r'long\s+long\b'
+    return t
+
+def t_LONG_DOUBLE(t):
+    r'long\s+double\b'
+    return t
+
+# Если 'const' и 'volatile' ещё не были включены
+def t_TYPE_QUALIFIER(t):
+    r'(const|volatile)\b'
+    return t
+
+# Используйте этот код для обработки #define с идентификатором и значением
+def t_DEFINE(t):
+    r'\#\s*define\s+[a-zA-Z_][a-zA-Z_0-9]*\s+([^\n]*)'
+    t.value = t.value.split(maxsplit=2)[2]  # Сохраняет значение после #define и идентификатора
+    return t
+
+def t_error(t):
+    print(f"Illegal character '{t.value[0]}' at line {t.lineno}, position {t.lexpos}")
+    t.lexer.skip(1)
+
 # Построение лексера
 lexer = lex.lex()
 
-# Тестирование лексера
-if __name__ == "__main__":
-    data = '''
-    int main() {
-        int a = 5;
-        return a;
-    }
-    '''
-    lexer.input(data)
-    while True:
-        tok = lexer.token()
-        if not tok:
-            break
-        print(tok)
