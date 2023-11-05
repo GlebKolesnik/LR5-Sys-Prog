@@ -273,9 +273,41 @@ class SemanticAnalyzer(c_ast.NodeVisitor):
         return cast_to_type
 
     def visit_UnaryOp(self, node):
-        # Обработка унарных операций (например, отрицания, инкремента)
-        # Проверка типа операнда
-        pass
+        # Получаем тип операнда
+        operand_type = self.visit(node.expr)
+
+        # Определяем тип результата на основе операции
+        if node.op == '-':  # Арифметическое отрицание
+            if operand_type.is_arithmetic_type():
+                return operand_type
+            else:
+                print(f"Ошибка: операция {node.op} недопустима для типа '{operand_type.type_name}'")
+        elif node.op == '!':  # Логическое отрицание
+            return TypeInfo('int')  # В C результатом логического отрицания всегда является 'int'
+        elif node.op == '~':  # Битовое отрицание
+            if operand_type.is_integer_type():
+                return operand_type
+            else:
+                print(f"Ошибка: операция {node.op} недопустима для типа '{operand_type.type_name}'")
+        elif node.op in ['++', '--', 'p++', 'p--']:  # Инкремент и декремент
+            if operand_type.is_integer_type() or operand_type.is_floating_point_type():
+                return operand_type
+            else:
+                print(f"Ошибка: операция {node.op} недопустима для типа '{operand_type.type_name}'")
+        elif node.op == '&':  # Операция взятия адреса
+            return TypeInfo(f"*{operand_type.type_name}")
+        elif node.op == '*':  # Разыменование указателя
+            if operand_type.is_pointer_type():
+                # Убираем один уровень указателя из типа
+                return TypeInfo(operand_type.type_name.rstrip('*').strip())
+            else:
+                print(f"Ошибка: операция {node.op} недопустима для типа '{operand_type.type_name}'")
+        else:
+            print(f"Ошибка: неизвестная унарная операция '{node.op}'")
+            return None
+
+        return None  # Если мы дошли до этой точки, произошла ошибка
+
 
 class TypeInfo:
     def __init__(self, type_name, base_type=None, array_size=None, function_return_type=None, function_params=None):
@@ -425,6 +457,13 @@ class TypeInfo:
 
         # Дополнительные проверки для других типов могут быть добавлены здесь
         return True
+
+    def is_pointer_type(self):
+        # Простая проверка, что тип содержит звездочку, что указывает на указатель
+        return '*' in self.type_name
+    def is_arithmetic_type(self):
+        # Проверяем, является ли тип арифметическим (числовым)
+        return self.is_integer_type() or self.is_floating_point_type()
 
 class SymbolTable:
     def __init__(self):
